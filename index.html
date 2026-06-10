@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Comment OSINT | コメント特定ツール</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            font-family: 'Segoe UI', Arial, sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { color: #00f2ea; font-size: 28px; }
+        .card {
+            background: rgba(20, 20, 40, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #00f2ea;
+        }
+        .input-group { margin-bottom: 15px; }
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            background: #0a0a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #00f2ea, #000);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .result-area {
+            background: #0a0a1a;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .comment-item {
+            background: #1a1a2e;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 3px solid #00f2ea;
+        }
+        .comment-text { color: #ccc; font-size: 13px; margin-bottom: 5px; }
+        .comment-link { color: #00f2ea; font-size: 11px; word-break: break-all; }
+        .no-result { text-align: center; color: #888; padding: 40px; }
+        .found { color: #00ff00; font-weight: bold; margin-bottom: 15px; }
+        .loading { text-align: center; padding: 40px; color: #00f2ea; }
+        .method-buttons { display: flex; gap: 10px; margin-bottom: 15px; }
+        .method-btn {
+            flex: 1;
+            padding: 10px;
+            background: #0a0a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+        }
+        .method-btn.active {
+            background: #00f2ea;
+            color: #000;
+            border-color: #00f2ea;
+        }
+        .warning {
+            background: rgba(255,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            margin-bottom: 15px;
+        }
+        .search-query {
+            background: #0a0a1a;
+            padding: 8px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 11px;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🔍 TikTok Comment OSINT</h1>
+        <p>ユーザーネームから特定情報を抽出</p>
+    </div>
+    
+    <div class="card">
+        <div class="warning">
+            ⚠️ 注意: TikTokは公式APIでのコメント取得が困難です<br>
+            Google検索を利用してコメントを探します
+        </div>
+        
+        <div class="input-group">
+            <label>🎵 TikTokユーザーネーム</label>
+            <input type="text" id="username" placeholder="例: @username または username">
+        </div>
+        
+        <div class="method-buttons">
+            <button class="method-btn active" data-method="google">🔍 Google検索</button>
+            <button class="method-btn" data-method="manual">📋 手動検索用クエリ</button>
+        </div>
+        
+        <button class="btn" id="searchBtn">🔍 コメントを検索</button>
+        
+        <div id="resultArea" class="result-area" style="display:none;">
+            <div id="resultContent"></div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h3 style="margin-bottom:10px;">📋 特定に使えるキーワード</h3>
+        <div style="font-size:12px; color:#aaa; flex-wrap:wrap; display:flex; gap:5px;">
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">住所</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">学校</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">職場</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">会社</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">大学</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">高校</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">マンション</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">駅</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">電話</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">LINE</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">Instagram</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">本名</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">年齢</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">誕生日</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">住んでる</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">地元</span>
+            <span style="background:#333; padding:2px 8px; border-radius:10px;">家族</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentMethod = 'google';
+    
+    // 特定キーワード
+    const sensitiveKeywords = [
+        '住所', '住んで', '自宅', '家は', '実家', '地元', '出身', '在住',
+        'マンション', 'アパート', '団地', '駅', '徒歩', '学校', '高校', '中学',
+        '小学校', '大学', '学部', '会社', '職場', '仕事', '勤務', 'バイト',
+        'LINE', 'Instagram', 'Twitter', 'Facebook', 'Discord', '電話', '携帯',
+        '年齢', '誕生日', '本名', '名前は', '名字', '家族', '両親', '父', '母',
+        '兄', '弟', '姉', '妹', '彼氏', '彼女', '恋人'
+    ];
+    
+    // 検索クエリ生成
+    function generateSearchQueries(username) {
+        const cleanUser = username.replace('@', '');
+        return [
+            `site:tiktok.com "@${cleanUser}" コメント`,
+            `site:tiktok.com "${cleanUser}" 住んでる`,
+            `site:tiktok.com "${cleanUser}" 学校`,
+            `site:tiktok.com "${cleanUser}" 会社`,
+            `site:tiktok.com "${cleanUser}" LINE`,
+            `site:tiktok.com ${cleanUser} コメント`,
+            `"${cleanUser}" site:tiktok.com`
+        ];
+    }
+    
+    // テキストからキーワード検出
+    function detectSensitiveContent(text) {
+        const found = [];
+        for (const kw of sensitiveKeywords) {
+            if (text.includes(kw)) {
+                found.push(kw);
+            }
+        }
+        return found;
+    }
+    
+    // Google検索URLを開く（手動確認用）
+    function openGoogleSearch(query) {
+        const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+        window.open(url, '_blank');
+    }
+    
+    // 検索実行（実際のコメント収集はユーザー自身が行う）
+    async function performSearch() {
+        let username = document.getElementById('username').value.trim();
+        if (!username) {
+            alert('ユーザーネームを入力してください');
+            return;
+        }
+        
+        if (username.startsWith('@')) {
+            username = username.substring(1);
+        }
+        
+        const resultArea = document.getElementById('resultArea');
+        const resultContent = document.getElementById('resultContent');
+        resultArea.style.display = 'block';
+        
+        if (currentMethod === 'google') {
+            // Google検索を開く
+            const queries = generateSearchQueries(username);
+            
+            let html = `
+                <div class="found">🔍 Google検索でコメントを探します</div>
+                <div style="margin-top: 15px;">
+                    <p>以下の検索クエリをクリックして、コメントを確認してください：</p>
+            `;
+            
+            for (const query of queries) {
+                html += `
+                    <div class="search-query">
+                        <a href="https://www.google.com/search?q=${encodeURIComponent(query)}" target="_blank" style="color:#00f2ea;">
+                            🔗 ${escapeHtml(query)}
+                        </a>
+                    </div>
+                `;
+            }
+            
+            html += `
+                    <div style="margin-top: 15px; padding: 10px; background: #1a1a2e; border-radius: 8px;">
+                        <p>📝 見つけたコメントを下のボックスに貼り付けて分析できます：</p>
+                        <textarea id="manualComment" rows="3" style="width:100%; background:#0a0a1a; border:1px solid #333; color:white; padding:10px; border-radius:5px; margin-top:10px;" placeholder="ここにコメントを貼り付け"></textarea>
+                        <button id="analyzeBtn" style="margin-top:10px; background:#00f2ea; color:#000; padding:8px; border:none; border-radius:5px; cursor:pointer;">🔍 コメントを分析</button>
+                    </div>
+                </div>
+            `;
+            
+            resultContent.innerHTML = html;
+            
+            document.getElementById('analyzeBtn')?.addEventListener('click', () => {
+                const comment = document.getElementById('manualComment').value;
+                if (!comment) {
+                    alert('コメントを入力してください');
+                    return;
+                }
+                analyzeComment(comment);
+            });
+            
+        } else {
+            // 手動検索用クエリのみ表示
+            const queries = generateSearchQueries(username);
+            let html = `<div class="found">📋 以下の検索クエリを使って自分で検索してください</div>`;
+            for (const query of queries) {
+                html += `
+                    <div class="search-query">
+                        🔗 ${escapeHtml(query)}
+                        <button onclick="copyToClipboard('${escapeHtml(query)}')" style="margin-left:10px; background:#333; border:none; color:white; padding:2px 8px; border-radius:3px; cursor:pointer;">コピー</button>
+                    </div>
+                `;
+            }
+            resultContent.innerHTML = html;
+        }
+    }
+    
+    function analyzeComment(comment) {
+        const keywords = detectSensitiveContent(comment);
+        
+        if (keywords.length === 0) {
+            alert('❌ 特定に使えそうな情報は見つかりませんでした');
+        } else {
+            alert(`✅ 特定に使える情報が見つかりました！\n\n検出キーワード: ${keywords.join(', ')}\n\nコメント内容:\n${comment}`);
+        }
+    }
+    
+    function escapeHtml(str) {
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+    
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text);
+        alert('コピーしました');
+    }
+    
+    // メソッド切替
+    document.querySelectorAll('.method-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentMethod = btn.dataset.method;
+        });
+    });
+    
+    document.getElementById('searchBtn').addEventListener('click', performSearch);
+    
+    // Enter対応
+    document.getElementById('username').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') performSearch();
+    });
+</script>
+</body>
+</html>
